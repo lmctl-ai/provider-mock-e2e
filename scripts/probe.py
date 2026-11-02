@@ -113,7 +113,11 @@ def child(provider,binary,out):
   home=pathlib.Path(scratch);work=home/'work';work.mkdir()
   env,args=configure(provider,base,home,work)
   version=command([binary,'--version'],env,work)
-  r=command([binary]+args,env,work)
+  try:r=command([binary]+args,env,work)
+  finally:
+   if provider=='hermes':
+    interpreter=pathlib.Path(binary).parent/('python.exe' if os.name=='nt' else 'python')
+    subprocess.run([str(interpreter),str(pathlib.Path(__file__).with_name('cleanup-hermes.py')),str(home/'hermes')],env=env,cwd=work,check=True)
   out.mkdir(parents=True,exist_ok=True)
   (out/'stdout.txt').write_text(r.stdout,encoding='utf-8');(out/'stderr.txt').write_text(r.stderr,encoding='utf-8')
   (out/'version.txt').write_text(version.stdout+version.stderr,encoding='utf-8')

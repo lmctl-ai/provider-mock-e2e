@@ -19,6 +19,11 @@ class OracleTests(unittest.TestCase):
    root=pathlib.Path(tmp);package=root/'node_modules/@anthropic-ai/claude-code';package.mkdir(parents=True)
    (package/'package.json').write_text(json.dumps({'bin':{'claude':'cli.exe'}}));(package/'cli.exe').touch()
    self.assertEqual(probe.tool_argv(root/'claude.cmd',['']),[str((package/'cli.exe').resolve()),''])
+ def test_cleanup_refuses_foreign_home(self):
+  location=pathlib.Path(__file__).parents[1]/'scripts/cleanup-hermes.py'
+  spec=importlib.util.spec_from_file_location('cleanup',location);cleanup=importlib.util.module_from_spec(spec);spec.loader.exec_module(cleanup)
+  with self.assertRaisesRegex(AssertionError,'foreign Hermes HOME'):
+   cleanup.validate_record({'kind':'hermes-gateway','hermes_home':'/foreign','pid':123,'start_time':1},pathlib.Path('/owned'))
  def test_credentials_not_inherited(self):
   import os,tempfile
   from unittest.mock import patch

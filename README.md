@@ -11,3 +11,5 @@ The released llm-api handler forces arbitrary first-tool calls. `scripts/prepare
 Every result requires exit0 and exact PROVIDER_MOCK_OK_129. The same checker is invoked with a deliberately wrong expectation and must raise its wrong-reply assertion. Raw stdout/stderr and synthetic request/audit records are retained without output caps. No sleeps, process deadlines or custom generation limits are used; CI has a job safety bound. No provider key or credential file is accepted.
 
 See [the endpoint matrix](MATRIX.md) for the supported routing and remaining Muse catalog gap. Detailed run evidence is maintained in the owning task report in skills-scripts. An unsupported authenticated vendor route requires a sanitized lminspect capture, not a guessed fixture.
+
+Hermes may start a detached gateway even for this one-shot command. `scripts/cleanup-hermes.py` reads only the fresh HOME gateway record, verifies its kind, HOME and process-start fingerprint, then reaps that numeric PID before deleting fixtures. It never scans or stops a production gateway. The owned process must exit even when the reply or audit fails.
