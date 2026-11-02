@@ -16,6 +16,22 @@ if len(sys.argv)>1 and sys.argv[1]=='--child':
    (out/(name+'-'+mode+'.txt')).write_text(data)
    assert status==200 and ('event-stream' in ctype or 'ndjson' in ctype),name+' stream framing'
    assert terminal in data,name+' terminal'
+   documents=[json.loads(line[6:]) for line in data.splitlines() if line.startswith('data: ') and line[6:]!='[DONE]'] if 'event-stream' in ctype else [json.loads(line) for line in data.splitlines() if line]
+   assert documents,name+' empty stream'
+   if mode=='tool':
+    if name=='chat':
+     functions=[call['function'] for doc in documents for choice in doc.get('choices',[]) for call in choice.get('delta',{}).get('tool_calls',[])];assert len(functions)==1
+     fn=functions[0];assert fn['name']=='weather' and json.loads(fn['arguments'])=={'city':'Paris'}
+    elif name=='responses':
+     functions=[doc['item'] for doc in documents if doc.get('type')=='response.output_item.done'];assert len(functions)==1
+     fn=functions[0];assert fn['type']=='function_call' and fn['name']=='weather' and json.loads(fn['arguments'])=={'city':'Paris'}
+    elif name=='anthropic':
+     starts=[doc['content_block'] for doc in documents if doc.get('type')=='content_block_start'];assert len(starts)==1 and starts[0]['type']=='tool_use' and starts[0]['name']=='weather'
+     args=''.join(doc['delta'].get('partial_json','') for doc in documents if doc.get('type')=='content_block_delta');assert json.loads(args)=={'city':'Paris'}
+    elif name=='gemini':
+     calls=[part['functionCall'] for doc in documents for candidate in doc['candidates'] for part in candidate['content']['parts'] if 'functionCall' in part];assert len(calls)==1 and calls[0]['name']=='weather' and calls[0]['args']=={'city':'Paris'}
+    else:
+     calls=[call['function'] for doc in documents for call in doc.get('message',{}).get('tool_calls',[])];assert len(calls)==1 and calls[0]['name']=='weather' and calls[0]['arguments']=={'city':'Paris'}
    assert ('weather' in data and toolmarker in data) if mode=='tool' else 'PROVIDER_MOCK_OK_129' in data,name+' payload'
    try:assert 'DELIBERATELY_WRONG_129' in data,'wrong-reply wire control'
    except AssertionError:pass
