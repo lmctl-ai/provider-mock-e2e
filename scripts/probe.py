@@ -59,7 +59,7 @@ def configure(provider,base,home,work):
   args=['run','--model','mock/'+model,'--format','json',PROMPT]
  elif provider=='pi':
   env['PI_CODING_AGENT_DIR']=str(home/'pi')
-  write('pi/models.json',json.dumps({'providers':{'mock':{'baseUrl':v1,'api':'openai-completions','apiKey':key,'models':[{'id':model,'name':model,'reasoning':False,'input':['text'],'contextWindow':128000,'maxTokens':8192,'cost':{'input':0,'output':0,'cacheRead':0,'cacheWrite':0}}]}}}))
+  write('pi/models.json',json.dumps({'providers':{'mock':{'baseUrl':v1,'api':'openai-completions','apiKey':key,'models':[{'id':model}]}}}))
   args=['--provider','mock','--model',model,'--no-session','--no-tools','-p',PROMPT]
  elif provider=='kimi':
   config='default_model="mock"\n[providers.mock]\ntype="openai"\nbase_url='+json.dumps(v1)+'\napi_key='+json.dumps(key)+'\n[models.mock]\nprovider="mock"\nmodel="mock-agent"\nmax_context_size=128000\n'
