@@ -18,7 +18,7 @@ class OracleTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp);package=root/'node_modules/@anthropic-ai/claude-code';package.mkdir(parents=True)
    (package/'package.json').write_text(json.dumps({'bin':{'claude':'cli.exe'}}));(package/'cli.exe').touch()
-   self.assertEqual(probe.tool_argv(root/'claude.cmd',['']),[str(package/'cli.exe'),''])
+   self.assertEqual(probe.tool_argv(root/'claude.cmd',['']),[str((package/'cli.exe').resolve()),''])
  def test_credentials_not_inherited(self):
   import os,tempfile
   from unittest.mock import patch
