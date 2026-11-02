@@ -1,0 +1,9 @@
+package proxy
+import("testing";"net/http";"path/filepath";"os";"strings")
+func TestWP129CaptureSanitizer(t *testing.T){
+ name:=filepath.Join(t.TempDir(),"synthetic.jsonl");r,e:=NewRecordAddon(name);if e!=nil{t.Fatal(e)}
+ req,_:=http.NewRequest("GET","https://fixture.invalid/api?api_key=synthetic%2Dquery%2D129",nil);req.Header.Set("Authorization","Bearer synthetic-header-129")
+ f:=NewFlow(NewRequest(req,nil),"127.0.0.1");f.Response=NewResponse(&http.Response{StatusCode:200,Header:http.Header{}},[]byte("ok"))
+ if e=r.OnResponse(f);e!=nil{t.Fatal(e)};r.Close();b,_:=os.ReadFile(name)
+ if strings.Contains(string(b),"synthetic-header-129")||strings.Contains(string(b),"synthetic%2Dquery%2D129"){t.Fatal("UNSAFE_CAPTURE: synthetic authorization or encoded query credential written verbatim")}
+}

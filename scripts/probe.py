@@ -17,6 +17,7 @@ def tool_argv(binary,args):
  entry=data['bin'];entry=entry if isinstance(entry,str) else entry[provider]
  target=(package/entry).resolve()
  assert target.is_file() and target.is_relative_to(package.resolve()),'npm entry escaped owned package'
+ if target.suffix.lower()=='.exe':return [str(target)]+args
  return [shutil.which('node'),str(target)]+args
 
 def command(argv,env,cwd):
@@ -75,7 +76,7 @@ def configure(provider,base,home,work):
   args=['-p',PROMPT,'--model','gemini-3.8-flash']
  elif provider=='hermes':
   env.update(HERMES_HOME=str(home/'hermes'),OPENAI_BASE_URL=v1,OPENAI_API_KEY=key,HERMES_TELEMETRY_ENABLED='false')
-  args=['--provider','custom','--model',model,'--safe-mode','--oneshot',PROMPT]
+  args=['chat','--native','--provider','custom','--base-url',v1,'--api-key',key,'--model',model,'--safe-mode','-Q','-q',PROMPT]
  elif provider=='muse':
   env.update(META_API_KEY=key,MUSE_NO_AUTO_UPDATE='1')
   args=['exec','--provider','meta','--base-url',v1,'--model','muse-spark-1.2',PROMPT]
@@ -114,14 +115,14 @@ def child(provider,binary,out):
   version=command([binary,'--version'],env,work)
   r=command([binary]+args,env,work)
   out.mkdir(parents=True,exist_ok=True)
-  (out/'stdout.txt').write_text(r.stdout);(out/'stderr.txt').write_text(r.stderr)
-  (out/'version.txt').write_text(version.stdout+version.stderr)
+  (out/'stdout.txt').write_text(r.stdout,encoding='utf-8');(out/'stderr.txt').write_text(r.stderr,encoding='utf-8')
+  (out/'version.txt').write_text(version.stdout+version.stderr,encoding='utf-8')
   inspect=json.load(urllib.request.urlopen(base+'/__inspect'))
   (out/'request.json').write_text(json.dumps(inspect,indent=2))
   if r.returncode==0:
    assert inspect.get('method')=='POST','no prompt POST recorded'
    assert PROMPT in inspect.get('body',''),'exact prompt absent from mock request'
-   expected_path={'claude':'/v1/messages','codex':'/v1/responses','gemini':'/v1beta/models/','qwen':'/v1/chat/completions','copilot':'/v1/chat/completions','opencode':'/v1/chat/completions','pi':'/v1/chat/completions','kimi':'/v1/chat/completions','miniplayer':'/v1/responses','lmplayer':'/v1/chat/completions','agy':'/v1beta/models/','dsh':'/v1/messages'}[provider]
+   expected_path={'claude':'/v1/messages','codex':'/v1/responses','gemini':'/v1beta/models/','qwen':'/v1/chat/completions','copilot':'/v1/chat/completions','opencode':'/v1/chat/completions','pi':'/v1/chat/completions','kimi':'/v1/chat/completions','miniplayer':'/v1/responses','lmplayer':'/v1/chat/completions','agy':'/v1beta/models/','dsh':'/v1/messages','hermes':'/v1/chat/completions'}[provider]
    assert inspect.get('url','').startswith(expected_path),'wrong provider endpoint'
   assert r.returncode==0,'tool exit '+str(r.returncode)+': '+r.stderr
   actual=reply(provider,r.stdout);oracle(actual,EXPECTED)

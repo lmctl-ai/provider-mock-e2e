@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2022]
-        provider: [claude, codex, gemini, copilot, opencode, qwen, pi, kimi, miniplayer, lmplayer, dsh, agy]
+        provider: [claude, codex, gemini, copilot, opencode, qwen, pi, kimi, miniplayer, lmplayer, dsh, agy, hermes]
     runs-on: ${{ matrix.os }}
     defaults:
       run:

@@ -13,6 +13,12 @@ class OracleTests(unittest.TestCase):
    (package/'package.json').write_text(json.dumps({'bin':{'codex':'entry.js'}}));(package/'entry.js').touch()
    args=['',probe.PROMPT,'{"x":"a b"}']
    self.assertEqual(probe.tool_argv(root/'codex.cmd',args)[2:],args)
+ def test_native_npm_entry_is_not_passed_to_node(self):
+  import tempfile,json
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);package=root/'node_modules/@anthropic-ai/claude-code';package.mkdir(parents=True)
+   (package/'package.json').write_text(json.dumps({'bin':{'claude':'cli.exe'}}));(package/'cli.exe').touch()
+   self.assertEqual(probe.tool_argv(root/'claude.cmd',['']),[str(package/'cli.exe'),''])
  def test_credentials_not_inherited(self):
   import os,tempfile
   from unittest.mock import patch
