@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2022]
-        provider: [claude, codex, gemini, copilot, opencode, qwen, pi]
+        provider: [claude, codex, gemini, copilot, opencode, qwen, pi, kimi, miniplayer, lmplayer, dsh, agy]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -34,6 +34,7 @@ jobs:
           python -m unittest discover -s tests -v
           export LMSCRIPT_JS="$RUNNER_TEMP/compiler/node_modules/@lmctl-ai/lmctl/bin/lmscript"
           python scripts/prepare.py
+          python scripts/wire.py "$RUNNER_TEMP/provider-mock-tools/settings.json" artifacts/wire
       - name: Configure, prompt, exact reply, wrong-expectation control, audit
         env:
           PROVIDER: ${{ matrix.provider }}

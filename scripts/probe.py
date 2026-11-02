@@ -3,9 +3,24 @@ import argparse,json,os,pathlib,shutil,subprocess,sys,tempfile,urllib.request
 EXPECTED='PROVIDER_MOCK_OK_129'
 PROMPT='Reply with exactly '+EXPECTED+'. Do not call any tools.'
 
+PACKAGES={'claude':'@anthropic-ai/claude-code','codex':'@openai/codex','gemini':'@google/gemini-cli','copilot':'@github/copilot','opencode':'opencode-ai','kimi':'@moonshot-ai/kimi-code','qwen':'@qwen-code/qwen-code','pi':'@earendil-works/pi-coding-agent','dsh':'@deepseek-ai/dsh','miniplayer':'miniplayer'}
+
+def tool_argv(binary,args):
+ binary=pathlib.Path(binary)
+ if binary.suffix.lower()!='.cmd':return [str(binary)]+args
+ # Bypass only npm's generated batch forwarding, not the installed tool. cmd.exe
+ # consumes empty/quoted arguments differently; Node's argv layer preserves them.
+ provider=binary.stem
+ if provider not in PACKAGES:raise RuntimeError('unreviewed batch launcher: '+provider)
+ package=binary.parent/'node_modules'/PACKAGES[provider]
+ data=json.loads((package/'package.json').read_text(encoding='utf-8'))
+ entry=data['bin'];entry=entry if isinstance(entry,str) else entry[provider]
+ target=(package/entry).resolve()
+ assert target.is_file() and target.is_relative_to(package.resolve()),'npm entry escaped owned package'
+ return [shutil.which('node'),str(target)]+args
+
 def command(argv,env,cwd):
- if os.name=='nt' and str(argv[0]).lower().endswith(('.cmd','.bat')):
-  argv=[os.environ.get('COMSPEC','cmd.exe'),'/d','/s','/c',subprocess.list2cmdline([str(a) for a in argv])]
+ argv=tool_argv(argv[0],argv[1:])
  return subprocess.run(argv,env=env,cwd=cwd,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace')
 
 def clean_env(home):
@@ -48,16 +63,34 @@ def configure(provider,base,home,work):
  elif provider=='kimi':
   config='default_model="mock"\n[providers.mock]\ntype="openai"\nbase_url='+json.dumps(v1)+'\napi_key='+json.dumps(key)+'\n[models.mock]\nprovider="mock"\nmodel="mock-agent"\nmax_context_size=128000\n'
   write('.kimi-code/config.toml',config)
-  args=['-p',PROMPT]
+  args=['-p',PROMPT,'--output-format','stream-json']
  elif provider=='miniplayer':
   confpath=write('miniplayer.json',json.dumps({'provider':{'openai':{'baseURL':v1,'apiKey':key}}}))
   env['OPENAI_API_KEY']=key
-  args=['--config',confpath,'run','--model','openai/mock-agent',PROMPT]
+  env['MINIPLAYER_CONFIG']=confpath
+  args=['run','--model','openai/mock-agent',PROMPT]
+ elif provider=='agy':
+  env.update(GEMINI_API_KEY=key,GOOGLE_GEMINI_BASE_URL=base,AGY_TELEMETRY_DISABLED='1',DO_NOT_TRACK='1')
+  write('.gemini/antigravity-cli/settings.json',json.dumps({'modelProvider':'gemini','telemetry':{'enabled':False}}))
+  args=['-p',PROMPT,'--model','gemini-3.8-flash']
+ elif provider=='hermes':
+  env.update(HERMES_HOME=str(home/'hermes'),OPENAI_BASE_URL=v1,OPENAI_API_KEY=key,HERMES_TELEMETRY_ENABLED='false')
+  args=['--provider','custom','--model',model,'--safe-mode','--oneshot',PROMPT]
+ elif provider=='muse':
+  env.update(META_API_KEY=key,MUSE_NO_AUTO_UPDATE='1')
+  args=['exec','--provider','meta','--base-url',v1,'--model','muse-spark-1.2',PROMPT]
+ elif provider=='dsh':
+  env.update(DSH_HOME=str(home/'dsh'),DEEPSEEK_API_KEY=key,DEEPSEEK_BASE_URL=v1,DSH_TELEMETRY_DISABLED='1')
+  args=['headless',PROMPT]
  else:raise ValueError('provider not configured: '+provider)
  return env,args
 
 def reply(provider,stdout):
  if provider=='claude':return json.loads(stdout)['result']
+ if provider=='kimi':
+  rows=[json.loads(x) for x in stdout.splitlines() if x.startswith('{')]
+  answers=[x['content'] for x in rows if x.get('role')=='assistant'];assert len(answers)==1,rows
+  return answers[0]
  if provider=='gemini':return json.loads(stdout)['response']
  if provider=='qwen':
   rows=json.loads(stdout);results=[x for x in rows if x.get('type')=='result'];assert len(results)==1 and not results[0].get('is_error');return results[0]['result']
@@ -85,6 +118,11 @@ def child(provider,binary,out):
   (out/'version.txt').write_text(version.stdout+version.stderr)
   inspect=json.load(urllib.request.urlopen(base+'/__inspect'))
   (out/'request.json').write_text(json.dumps(inspect,indent=2))
+  if r.returncode==0:
+   assert inspect.get('method')=='POST','no prompt POST recorded'
+   assert PROMPT in inspect.get('body',''),'exact prompt absent from mock request'
+   expected_path={'claude':'/v1/messages','codex':'/v1/responses','gemini':'/v1beta/models/','qwen':'/v1/chat/completions','copilot':'/v1/chat/completions','opencode':'/v1/chat/completions','pi':'/v1/chat/completions','kimi':'/v1/chat/completions','miniplayer':'/v1/responses','lmplayer':'/v1/chat/completions','agy':'/v1beta/models/','dsh':'/v1/messages'}[provider]
+   assert inspect.get('url','').startswith(expected_path),'wrong provider endpoint'
   assert r.returncode==0,'tool exit '+str(r.returncode)+': '+r.stderr
   actual=reply(provider,r.stdout);oracle(actual,EXPECTED)
   try:oracle(actual,'DELIBERATELY_WRONG_129')

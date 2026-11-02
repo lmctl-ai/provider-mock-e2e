@@ -6,6 +6,13 @@ class OracleTests(unittest.TestCase):
   with self.assertRaisesRegex(AssertionError,'wrong-reply:'):probe.oracle(probe.EXPECTED,'wrong')
  def test_extra_text_is_not_exact(self):
   with self.assertRaisesRegex(AssertionError,'wrong-reply:'):probe.oracle(probe.EXPECTED+' trailing',probe.EXPECTED)
+ def test_npm_entry_preserves_arguments(self):
+  import tempfile,json
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);package=root/'node_modules/@openai/codex';package.mkdir(parents=True)
+   (package/'package.json').write_text(json.dumps({'bin':{'codex':'entry.js'}}));(package/'entry.js').touch()
+   args=['',probe.PROMPT,'{"x":"a b"}']
+   self.assertEqual(probe.tool_argv(root/'codex.cmd',args)[2:],args)
  def test_credentials_not_inherited(self):
   import os,tempfile
   from unittest.mock import patch
